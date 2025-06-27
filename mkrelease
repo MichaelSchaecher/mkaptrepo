@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# mkrelease - A script to create a help manage apt repository
+# Copyright (C) 2025  Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+set -eo pipefail
+
+_appName="mkrelease"
+_appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || echo "unknown")"
+
+_versionInfo="$(cat <<EOF
+${_appName} ( version: ${_appVersion}  -  license: GPLv3.0 )
+EOF
+)"
+
+_helpInfo="$(cat <<EOF
+${_versionInfo}
+
+Usage: ${_appName} [OPTION]...
+
+Options
+    update              Update the apt repository and push to GitHub or GitLab
+                        See \`man ${_appName}\` for more information
+
+    create              Create a new apt repository (for more information, add --help)
+    help                Show this help message and exit
+    version             Show version information and exit
+
+Copyright (C) 2025 Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
+EOF
+)"
+
+case "$1" in
+    help) echo "${_helpInfo}" ; exit 0 ;;
+    version) echo "${_versionInfo}" ; exit 0 ;;
+    *) echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information." ; exit 1 ;;
+esac
