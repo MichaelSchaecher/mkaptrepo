@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# mkrelease - A script to create a help manage apt repository
+# mkaptrepo - A script to create a help manage apt repository
 # Copyright (C) 2025  Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 set -eo pipefail
 
-_appName="mkrelease"
+_appName="mkaptrepo"
 _appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || echo "unknown")"
 
 _versionInfo="$(cat <<EOF
