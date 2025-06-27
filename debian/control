@@ -1,0 +1,11 @@
+Package: your-package-name
+Version:
+Section:
+Priority: optional
+Maintainer:
+Installed-Size:
+Homepage:
+Architecture:
+Depends:
+Build-Depends:
+Description:
