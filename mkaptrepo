@@ -44,7 +44,10 @@ EOF
 )"
 
 case "$1" in
-    help) echo "${_helpInfo}" ; exit 0 ;;
-    version) echo "${_versionInfo}" ; exit 0 ;;
-    *) echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information." ; exit 1 ;;
+    help                        ) echo "${_helpInfo}" ; exit 0 ;;
+    version                     ) echo "${_versionInfo}" ; exit 0 ;;
+    *                           )
+        echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
+        exit 1
+    ;;
 esac
