@@ -1,11 +1,14 @@
-Package: your-package-name
+Package: mkaptrepo
 Version:
-Section:
+Section: utils
 Priority: optional
-Maintainer:
+Maintainer: Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
 Installed-Size:
-Homepage:
+Homepage: https://github.com/MichaelSchaecher/mkaptrepo
 Architecture:
-Depends:
-Build-Depends:
-Description:
+Depends: git, dpkg-dev, debhelper (>= 9)
+Build-Depends: make, dpkg-dev
+Description: mkaptrepo is a tool to manage APT repositories.
+ It allows you to create and maintain your own APT repositories
+ easily, including the generation of Packages and Release files,
+ as well as signing them with GPG.
