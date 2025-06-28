@@ -16,10 +16,132 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+function monitor_repo() {
+    inotifywait -m -e create,delete,modify,move "$_repoPath/pool" | while read -r directory events filename; do
+        echo "Detected changes in $directory: $events on $filename"
+        dpkg-scanpackages --arch amd64 "$_repoPath"/pool > $_packageList
+
+        # Remove `$_repoPath` from filename entry
+        sed -i "s|$_repoPath/||g" "$_packageList"
+
+        gzip -k -f "$_packageList"
+        xz -k -f "$_packageList"
+
+        rm -vf "$_release.gpg" "$_inrelease"
+
+        echo "$_releaseFile" > "$_release"
+
+        cd "$_distPath/stable" || exit 1
+
+        # for some reason the following doesn't work:
+        # {
+        #     do_hash "MD5Sum" "md5sum"
+        #     do_hash "SHA1" "sha1sum"
+        #     do_hash "SHA256" "sha256sum"
+        # } >> Release
+
+        # shellcheck disable=SC2129
+        do_hash "MD5Sum" "md5sum" >> Release
+        do_hash "SHA1" "sha1sum" >> Release
+        do_hash "SHA256" "sha256sum" >> Release
+
+        cd "$_repoPath" || exit 1
+
+        gpg --default-key HowToNebie -abs -o $_release.gpg $_release
+        gpg --default-key HowToNebie --clearsign -o $_inrelease $_release
+
+        if git_commit ; then
+            git push origin main || {
+                echo "git push failed, please check your network connection and try again." >&2
+                exit 1
+            }
+        fi
+    done
+}
+
+function do_hash () {
+
+    local hashName hashCmd
+
+    hashName=$1
+    hashCmd=$2
+
+    echo "${hashName}:"
+
+    find ./main -type f | while read -r f; do
+
+        f=$(echo "${f}" | cut -c3-) # remove ./ prefix
+        test "${f}" != "Release" || continue
+
+        echo " $(${hashCmd} "${f}"  | cut -d" " -f1) $(wc -c "${f}")"
+
+    done
+
+    sed -i "s|$_repoPath/||g" "$_release"
+}
+
+function git_commit() {
+
+    git add .
+
+    local commitMessage
+
+    # Generate a commit message based on what has changed use `git status`
+    # to get the list of changed files
+    for status in modified deleted created renamed; do
+        git status --porcelain | grep "^${status}" | while read -r line; do
+            file=$(echo "$line" | cut -c4-)
+            commitMessage="Update ${file} with package details and description"
+        done
+    done
+
+    git commit -m "${commitMessage:-"Update repository"}" || {
+        echo "git commit failed, no changes to commit." >&2
+        return 1
+    }
+}
+
 set -eo pipefail
 
 _appName="mkaptrepo"
 _appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || echo "unknown")"
+
+_home="${HOME}"
+
+# Source the configuration file if it exists
+# shellcheck disable=SC1090
+source "${_home}/.config/${_appName}/mkaptrepo.conf" 2>/dev/null || {
+    echo "Configuration file not found!" >&2 ; exit 1 ; }
+
+_repositoryName="${REPOSITORY_NAME}"
+_origin="${ORIGIN:-repository}"
+_label="${LABEL:-$_origin}"
+_suite="${SUITE:-stable}"
+_codename="${CODENAME:-stable}"
+_architectures="${ARCHITECTURES:-$(dpkg --print-architecture)}"
+_components="${COMPONENTS:-main}"
+_maintainer="${MAINTAINER:-$(git config user.name) <$(git config user.email)>}"
+
+_distPath="$_repoPath/dists"
+
+_release="$_distPath/stable/Release"
+_inrelease="$_distPath/stable/InRelease"
+_packageList="$_distPath/stable/main/binary-amd64/Packages"
+
+_releaseFile="$(cat <<EOF
+Origin: HowToNebie
+Label: default
+Suite: stable
+Codename: stable
+Version: 1.0
+Architectures: amd64
+Components: main
+Description: HowToNubie.com APT Repository
+ APT repository for HowToNubie.com
+Maintainer: Michael L. Schaecher <MichaelLeeSchaecher.com>
+date: $(date -Ru)
+EOF
+)"
 
 _versionInfo="$(cat <<EOF
 ${_appName} ( version: ${_appVersion}  -  license: GPLv3.0 )
@@ -32,19 +154,22 @@ ${_versionInfo}
 Usage: ${_appName} [OPTION]...
 
 Options
-    update              Update the apt repository and push to GitHub or GitLab
-                        See \`man ${_appName}\` for more information
-
-    create              Create a new apt repository (for more information, add --help)
-    help                Show this help message and exit
-    version             Show version information and exit
+    monitor             Monitor the repository for changes and update the package list.
+    daemon              Enable the systemd service for current user: see \`man mkaptrepo\`
+                        for more information.
+    create              Create a new apt repository (for more information, add --help).
+    config              Install the configuration file to \`~/.config/mkaptrepo/mkaptrepo.conf\`
+                        and exit.
+    help                Show this help message and exit.
+    version             Show version information and exit.
 
 Copyright (C) 2025 Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
 EOF
 )"
 
 case "$1" in
-    help                        ) echo "${_helpInfo}" ; exit 0 ;;
+    monitor                     ) monitor_repo                    ;;
+    help                        ) echo "${_helpInfo}"    ; exit 0 ;;
     version                     ) echo "${_versionInfo}" ; exit 0 ;;
     *                           )
         echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
