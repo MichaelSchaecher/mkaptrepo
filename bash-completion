@@ -13,15 +13,13 @@ _mkaptrepo_complete () {
 
     mapfile -t COMPREPLY < <(compgen -W "${commands}" -- "${cur}")
     case "${COMP_WORDS[1]}" in
-        start|stop|restart|status|help|version) ;;
-        config)
+        monitor|daemonize|config|help|version ) ;;
+        create                                )
             mapfile -t COMPREPLY < <(compgen -W "${create_opt}" -- "${cur}")
         ;;
-        *)
+        *                                     )
             # Default to completing the main commands
-            if [[ "$COMP_CWORD" -eq 1 ]]; then
-                mapfile -t COMPREPLY < <(compgen -W "${commands}" -- "$cur")
-            fi
+            test "$COMP_CWORD" -ne "1" || mapfile -t COMPREPLY < <(compgen -W "${commands}" -- "$cur")
         ;;
     esac
 }
