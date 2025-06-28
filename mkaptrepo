@@ -167,7 +167,7 @@ Usage: ${_appName} [OPTION]...
 
 Options
     monitor             Monitor the repository for changes and update the package list.
-    daemon              Enable the systemd service for current user: see \`man mkaptrepo\`
+    daemonize           Enable the systemd service for current user: see \`man mkaptrepo\`
                         for more information.
     create              Create a new apt repository (for more information, add --help).
     config              Install the configuration file to \`~/.config/mkaptrepo/mkaptrepo.conf\`
