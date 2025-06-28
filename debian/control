@@ -6,7 +6,7 @@ Maintainer: Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
 Installed-Size:
 Homepage: https://github.com/MichaelSchaecher/mkaptrepo
 Architecture:
-Depends: git, dpkg-dev, debhelper (>= 9)
+Depends: git, dpkg-dev, debhelper (>= 9), inotify-tools, systemd
 Build-Depends: make, dpkg-dev
 Description: mkaptrepo is a tool to manage APT repositories.
  It allows you to create and maintain your own APT repositories
