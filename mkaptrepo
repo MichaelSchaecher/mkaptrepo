@@ -20,9 +20,6 @@ function working_dir() {
 
     cd "$_dirPath/$_repositoryName" || { echo "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
 
-    _pwdDir="$(pwd)"
-    _packageList="dists/stable/main/binary-amd64/Packages"
-
 }
 
 function monitor_repo() {
@@ -32,6 +29,9 @@ function monitor_repo() {
     _monitoringDir="true"
 
     inotifywait -m -e create,delete,modify,move -r pool/ | while read -r directory events filename; do
+
+    echo "Detected changes in $directory: $events on $filename"
+
         update_repo || {
             echo "Failed to update repository after changes in $directory: $events on $filename" >&2
             exit 1
@@ -42,9 +42,12 @@ function monitor_repo() {
 
 function update_repo () {
 
-    test "$_monitoringDir" != "true" || working_dir
+    _pwdDir="$(pwd)"
+    _packageList="dists/stable/main/binary-amd64/Packages"
 
-    echo "Detected changes in $directory: $events on $filename"
+    test "$_monitoringDir" = "true" || working_dir
+
+    git add .
 
     # shellcheck disable=SC2086
     dpkg-scanpackages --arch amd64 pool/ > $_packageList || {
@@ -345,6 +348,7 @@ case "$1" in
             echo "Failed to enable mkaptrepo service." >&2
             exit 1
         }
+        exit 0
     ;;
     create                      ) create_repo "$@"       ;;
     config                      )

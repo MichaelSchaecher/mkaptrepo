@@ -1,14 +1,11 @@
 [Unit]
 Description = Monitor the local apt repository and update it when necessary
-Requires = user@%i.service
 
 [Service]
 Type = simple
-ExecStart = /usr/local/bin/mkaptrepo monitor
-Restart = on-failure
-RestartSec = 5s
-User = %i
-Group = %i
+LogLevelMax = notice
+EnvironmentFile = ${HOME}/.config/mkaptrepo/mkaptrepo.conf
+ExecStart = /usr/bin/mkaptrepo monitor
 
 [Install]
-WantedBy = multi-user.target
+WantedBy = default.target
