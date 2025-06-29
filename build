@@ -25,7 +25,7 @@ mkdir -p \
     "$BUILD_DIR"/DEBIAN \
     "$BUILD_DIR"/usr/bin \
     "$BUILD_DIR"/etc/ddnsd.conf.d \
-    "$BUILD_DIR"/usr/lib/systemd/system \
+    "$BUILD_DIR"/usr/lib/systemd/user \
     "$BUILD_DIR"/usr/share/man/man8 \
     "$BUILD_DIR"/usr/share/"$PACKAGE_NAME" \
     "$BUILD_DIR"/usr/share/doc/"$PACKAGE_NAME" \
@@ -40,7 +40,9 @@ cp -av CODE_OF_CONDUCT.md "$BUILD_DIR/usr/share/doc/$PACKAGE_NAME/code_of_conduc
 cp -av bash-completion "$BUILD_DIR/usr/share/bash-completion/completions/$PACKAGE_NAME"
 cp -av ./*.conf "$BUILD_DIR/usr/share/$PACKAGE_NAME/"
 
-cp -av ./*.service "$BUILD_DIR/usr/lib/systemd/system/"
+cp -av readme-template.md "$BUILD_DIR/usr/share/$PACKAGE_NAME/"
+
+cp -av ./*.service "$BUILD_DIR/usr/lib/systemd/user/"
 cp -av $PACKAGE_NAME "$BUILD_DIR/usr/bin/"
 cp -av $PACKAGE_NAME.conf "$BUILD_DIR/etc/"
 cp -av debian/* "$BUILD_DIR/DEBIAN/"
@@ -58,7 +60,10 @@ awk -v ver="$PACKAGE_VERSION" \
                        { print }
 ' "$CONTROL_FILE" > "${CONTROL_FILE}.tmp" && mv "${CONTROL_FILE}.tmp" "$CONTROL_FILE"
 
-chmod +x "$BUILD_DIR/DEBIAN/"{postinst,prerm}
+for d in "postinst" "prerm" "preinst" "postrm"; do
+    test -f "$BUILD_DIR/DEBIAN/$d" || break
+    chmod +x "$BUILD_DIR/DEBIAN/$d"
+done
 
 # Build man pages
 for m in man/*.md; do
