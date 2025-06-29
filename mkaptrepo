@@ -20,7 +20,7 @@ function monitor_repo() {
 
     cd "$_dirPath/$_repositoryName" || { echo "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
 
-    local _pwdDir _packageList
+    local _pwdDir _packageList _upgraded _date
 
     _pwdDir="$(pwd)"
     _packageList="dists/stable/main/binary-amd64/Packages"
@@ -36,7 +36,7 @@ function monitor_repo() {
         }
 
         # Remove `./` prefix from the package list
-        sed -i "s|^\./||g" "$_packageList"
+        sed -i "s|\ ./||g" "$_packageList"
 
         gzip -k -f "$_packageList"
         xz -k -f "$_packageList"
@@ -45,6 +45,17 @@ function monitor_repo() {
         git_commit || { echo "git commit failed!" >&2 ; exit 1 ; }
 
         cd "$_pwdDir" || exit 1
+
+        # Check if mkaptrepo was updated during apt update
+        _upgraded="$(zgrep "$_appName" /var/log/dpkg.log* | grep 'upgrade' |
+        tail -n 1 | sed 's/ ^*[0-9][0-9]//g')"
+
+        _date="$(date +%Y-%m-%d)"
+
+        # Compare the date of the last upgrade with the current date
+        if test "$_date" = "$_upgraded" ; then
+            systemctl --user restart mkaptrepo.service > /dev/null 2>&1 || true
+        fi
 
     done
 }
