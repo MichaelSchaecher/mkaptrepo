@@ -18,20 +18,20 @@
 
 function monitor_repo() {
 
-    cd "$_repoPath/$_repositoryName" || { echo "$_repoPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
+    cd "$_dirPath/$_repositoryName" || { echo "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
 
-    local pwdDir packageList
+    local _pwdDir _packageList
 
-    pwdDir="$(pwd)"
-    packageList="$_packageList"
+    _pwdDir="$(pwd)"
+    _packageList="dists/stable/main/binary-amd64/Packages"
 
 
-    inotifywait -m -e create,delete,modify,move -r ./pool | while read -r directory events filename; do
+    inotifywait -m -e create,delete,modify,move -r pool/ | while read -r directory events filename; do
         echo "Detected changes in $directory: $events on $filename"
 
         # shellcheck disable=SC2086
-        dpkg-scanpackages --arch amd64 ./pool > ${packageList} || {
-            echo "dpkg-scanpackages failed, please check your package files." >&2
+        dpkg-scanpackages --arch amd64 ./pool > $_packageList || {
+            echo "dpkg-scanpackages failed, please check your package files!" >&2
             exit 1
         }
 
@@ -44,7 +44,7 @@ function monitor_repo() {
         gen_release || { echo "Generating Release file failed!" >&2 ; exit 1 ; }
         git_commit || { echo "git commit failed!" >&2 ; exit 1 ; }
 
-        cd "$pwdDir" || exit 1
+        cd "$_pwdDir" || exit 1
 
     done
 }
@@ -67,7 +67,7 @@ function do_hash () {
 
     done
 
-    sed -i "s|$_repoPath/||g" Release
+    sed -i "s|$_dirPath/||g" Release
 }
 
 function git_commit() {
@@ -113,6 +113,50 @@ function gen_release () {
 
 }
 
+function create_repo () {
+
+    local _arch _repo _release
+
+    # Set default value from the configuration file
+    _arch="${_architectures}"
+
+    shift
+
+    while true ; do case "$1" in
+        -a|--arch               )
+            if [[ "$2" =~ ^[a-zA-Z0-9-]+$ ]] ; then
+                _arch="$2" ; shift
+            else
+                echo "Invalid architecture specified: $2" >&2
+                exit 1
+            fi
+        ;;
+        -r|--release            )
+            if [[ "$2" =~ ^[a-z] ]] ; then
+                _release="$2" ; shift
+            else
+                echo "Invalid release codename specified: $2" >&2
+                exit 1
+            fi
+        ;;
+        -n|--name             )
+            test -n "$2" || { echo "Parent directory is not specified!" >&2 ; exit 1 ; }
+            mkdir -pv "$_dirPath/$2" || { echo "Failed to create directory $_dirPath/$2" >&2 ; exit 1 ; }
+            _repo="${_dirPath}/$2"
+            shift
+        ;;
+        --help | -h             ) echo "${_createRepoHelp}"    ; exit 0          ;;
+        *                       ) if test -n "$2" ; then shift ; else break ; fi ;;
+    esac ; done
+
+    cd "$_repo"
+
+    git init || { echo "Failed to initialize git repository in $_repo" >&2 ; exit 1 ; }
+
+
+
+}
+
 set -eo pipefail
 
 _appName="mkaptrepo"
@@ -133,13 +177,10 @@ _codename="${CODENAME:-stable}"
 _architectures="${ARCHITECTURES:-$(dpkg --print-architecture)}"
 _components="${COMPONENTS:-main}"
 _maintainer="${MAINTAINER:-$(git config user.name) <$(git config user.email)>}"
-_repoPath="${REPO_PATH:-not set}"
+_dirPath="${DIR_PATH}"
 
-_distPath="$_repoPath/dists"
-
-_release="dists/stable/Release"
-_inrelease="$_distPath/stable/InRelease"
-_packageList="dists/stable/main/binary-amd64/Packages"
+test -n "$_maintainer" || { echo "Maintainer is not set in the configuration file!" >&2 ; exit 1 ; }
+test -n "$_dirPath" || { echo "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
 
 _releaseFile="$(cat <<EOF
 Origin: $_origin/$_repositoryName
@@ -166,25 +207,50 @@ ${_versionInfo}
 Usage: ${_appName} [OPTION]...
 
 Options
-    monitor             Monitor the repository for changes and update the package list.
-    daemonize           Enable the systemd service for current user: see \`man mkaptrepo\`
-                        for more information.
-    create              Create a new apt repository (for more information, add --help).
-    config              Install the configuration file to \`~/.config/mkaptrepo/mkaptrepo.conf\`
-                        and exit.
-    help                Show this help message and exit.
-    version             Show version information and exit.
+    monitor                     Monitor the repository for changes and update the package list.
+    daemonize                   Enable the systemd service for current user: see \`man mkaptrepo\`
+                                for more information.
+    create                      Create a new apt repository (for more information, add --help).
+    config                      Install the configuration file to \`~/.config/mkaptrepo/mkaptrepo.conf\`
+                                and exit.
+    help                        Show this help message and exit.
+    version                     Show version information and exit.
 
-Copyright (C) 2025 Michael L. Schaecher <MichaelLeeSchaecher@gmail.com>
+Copyright (C) 2025 ${_maintainer}
+EOF
+)"
+
+_createRepoHelp="$(cat <<EOF
+${_versionInfo}
+
+Usage: ${_appName} create [OPTIONS]
+
+Options:
+    -a, --arch <arch>           Specify the architecture for the repository (default: \`$(dpkg --print-architecture)\`).
+    -r, --release <codename>    Specify the codename for the release (default: \`stable\`).
+    -p, --parent <path>         Specify the parent directory for the repository will be created in.
+    --help, -h                  Show this help message and exit.
+
+Copyright (C) 2025 ${_maintainer}
 EOF
 )"
 
 case "$1" in
-    monitor                     ) monitor_repo                    ;;
-    help                        ) echo "${_helpInfo}"    ; exit 0 ;;
-    version                     ) echo "${_versionInfo}" ; exit 0 ;;
+    monitor                     ) monitor_repo           ;;
+    daemonize                   )
+        systemctl enable --now --user mkaptrepo.service || {
+            echo "Failed to enable mkaptrepo service." >&2
+            exit 1
+        }
+    ;;
+    create                      ) create_repo "$@"       ;;
+
+    help                        ) echo "${_helpInfo}"    ;;
+    version                     ) echo "${_versionInfo}" ;;
     *                           )
         echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
         exit 1
     ;;
 esac
+
+wait ; exit 0
