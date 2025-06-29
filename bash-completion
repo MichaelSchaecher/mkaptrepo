@@ -38,7 +38,6 @@ _mkaptrepo_complete () {
                 esac
             fi
 
-
         ;;
         *                                     )
             # Default to completing the main commands
