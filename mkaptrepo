@@ -27,37 +27,46 @@ function monitor_repo() {
 
 
     inotifywait -m -e create,delete,modify,move -r pool/ | while read -r directory events filename; do
-        echo "Detected changes in $directory: $events on $filename"
-
-        # shellcheck disable=SC2086
-        dpkg-scanpackages --arch amd64 pool/ > $_packageList || {
-            echo "dpkg-scanpackages failed, please check your package files!" >&2
+        update_repo || {
+            echo "Failed to update repository after changes in $directory: $events on $filename" >&2
             exit 1
         }
 
-        # Remove `./` prefix from the package list
-        sed -i "s|\ ./||g" "$_packageList"
-
-        gzip -k -f "$_packageList"
-        xz -k -f "$_packageList"
-
-        gen_release || { echo "Generating Release file failed!" >&2 ; exit 1 ; }
-        git_commit || { echo "git commit failed!" >&2 ; exit 1 ; }
-
-        cd "$_pwdDir" || exit 1
-
-        # Check if mkaptrepo was updated during apt update
-        _upgraded="$(zgrep "$_appName" /var/log/dpkg.log* | grep 'upgrade' |
-        tail -n 1 | sed 's/ ^*[0-9][0-9]//g')"
-
-        _date="$(date +%Y-%m-%d)"
-
-        # Compare the date of the last upgrade with the current date
-        if test "$_date" = "$_upgraded" ; then
-            systemctl --user restart mkaptrepo.service > /dev/null 2>&1 || true
-        fi
-
     done
+}
+
+function update_repo () {
+
+    echo "Detected changes in $directory: $events on $filename"
+
+    # shellcheck disable=SC2086
+    dpkg-scanpackages --arch amd64 pool/ > $_packageList || {
+        echo "dpkg-scanpackages failed, please check your package files!" >&2
+        exit 1
+    }
+
+    # Remove `./` prefix from the package list
+    sed -i "s|\ ./||g" "$_packageList"
+
+    gzip -k -f "$_packageList"
+    xz -k -f "$_packageList"
+
+    gen_release || { echo "Generating Release file failed!" >&2 ; exit 1 ; }
+    git_commit || { echo "git commit failed!" >&2 ; exit 1 ; }
+
+    cd "$_pwdDir" || exit 1
+
+    # Check if mkaptrepo was updated during apt update
+    _upgraded="$(zgrep "$_appName" /var/log/dpkg.log* | grep 'upgrade' |
+    tail -n 1 | sed 's/ ^*[0-9][0-9]//g')"
+
+    _date="$(date +%Y-%m-%d)"
+
+    # Compare the date of the last upgrade with the current date
+    if test "$_date" = "$_upgraded" ; then
+        systemctl --user restart mkaptrepo.service > /dev/null 2>&1 || true
+    fi
+
 }
 
 function do_hash () {
@@ -260,7 +269,7 @@ test -n "$_maintainer" || { echo "Maintainer is not set in the configuration fil
 test -n "$_dirPath" || { echo "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
 
 _releaseFile="$(cat <<EOF
-Origin: $_origin/$_repositoryName
+Origin: $_origin
 Label: $_label
 Suite: $_suite
 Codename: $_codename
@@ -284,6 +293,7 @@ ${_versionInfo}
 Usage: ${_appName} [OPTION]...
 
 Options
+    update                      Update the package list and generate the Release file.
     monitor                     Monitor the repository for changes and update the package list.
     daemonize                   Enable the systemd service for current user: see \`man mkaptrepo\`
                                 for more information.
@@ -323,6 +333,7 @@ if test ! -f "${_home}/.config/${_appName}/${_appName}.conf" ; then
 fi
 
 case "$1" in
+    update                      ) update_repo            ;;
     monitor                     ) monitor_repo           ;;
     daemonize                   )
         systemctl enable --now --user mkaptrepo.service || {

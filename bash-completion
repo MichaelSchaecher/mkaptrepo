@@ -10,7 +10,7 @@ _mkaptrepo_complete () {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    commands="monitor daemonize create config help version"
+    commands="update monitor daemonize create config help version"
     create_opt="-a --arch -r --release -n --name -p --populate -l --license -h --help"
     licenses="AGPL-3 Apache-2 BSD-2 BSD-3 CDDL Eclipse-Public-License
         GPL-2 GPL-3 LGPL-2 LGPL-3 MIT Mozilla-Public-License-2"
@@ -18,7 +18,7 @@ _mkaptrepo_complete () {
 
     mapfile -t COMPREPLY < <(compgen -W "${commands}" -- "${cur}")
     case "${COMP_WORDS[1]}" in
-        monitor|daemonize|config|help|version ) ;;
+        update|monitor|daemonize|config|help|version ) ;;
         create                                )
             mapfile -t COMPREPLY < <(compgen -W "${create_opt}" -- "${cur}")
 
