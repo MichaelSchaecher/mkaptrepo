@@ -1,6 +1,8 @@
 # shellcheck disable=SC2148
 _mkaptrepo_complete () {
 
+    source "/etc/os-release"
+
     local cur prev commands
     cur="${COMP_WORDS[COMP_CWORD]}"
 
@@ -9,13 +11,34 @@ _mkaptrepo_complete () {
 
     # Main commands
     commands="monitor daemonize create config help version"
-    create_opt="--arch -a --codename -c --deb-release -d"
+    create_opt="-a --arch -r --release -n --name -p --populate -l --license -h --help"
+    licenses="AGPL-3 Apache-2 BSD-2 BSD-3 CDDL Eclipse-Public-License
+        GPL-2 GPL-3 LGPL-2 LGPL-3 MIT Mozilla-Public-License-2"
+
 
     mapfile -t COMPREPLY < <(compgen -W "${commands}" -- "${cur}")
     case "${COMP_WORDS[1]}" in
         monitor|daemonize|config|help|version ) ;;
         create                                )
             mapfile -t COMPREPLY < <(compgen -W "${create_opt}" -- "${cur}")
+
+            if [[ "${cur}" == -* ]]; then
+                # If the current word starts with a dash, suggest options
+                case "${prev}" in
+                    -l|--license              )
+                        mapfile -t COMPREPLY < <(compgen -W "${licenses}" -- "${cur#-}")
+                    ;;
+                    -a|--arch                 )
+                        mapfile -t COMPREPLY < <(compgen -W "$(dpkg --print-architecture)" -- "${cur#-}")
+                    ;;
+                    -r|--release              )
+                        mapfile -t COMPREPLY < <(compgen -W "$VERSION_CODENAME" -- "${cur#-}")
+                    ;;
+                    *                         ) ;;
+                esac
+            fi
+
+
         ;;
         *                                     )
             # Default to completing the main commands
