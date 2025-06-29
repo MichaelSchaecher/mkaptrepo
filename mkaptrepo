@@ -115,10 +115,29 @@ function gen_release () {
 
 function create_repo () {
 
-    local _arch _repo _release
+    local _arch _repo _release _populate _license
 
     # Set default value from the configuration file
     _arch="${_architectures}"
+    _release="${_codename}"
+    _populate="no"
+
+    _licenseLink="https://raw.githubusercontent.com/MichaelSchaecher/license-templates/refs/heads/main/licenses"
+    _license="GPL-3"
+
+    # _licenseTypes=("AGPL-3.0" "Apache-2.0-License" "BSD-2Simplified-License" "BSD-3Clause-New-License"
+    #     "CDDL" "EclipsePublicLicense" "GPL-2" "GPL-3" LGPL-2.1" "LGPL-3" "MIT" "MPL-2.0"
+    #     "Mozilla-Public-License-2.0")
+    _licenseTypes=(
+        "AGPL-3" "Apache-2" "BSD-2" "BSD-3" "CDDL" "Eclipse-Public-License"
+        "GPL-2" "GPL-3" "LGPL-2" "LGPL-3" "MIT" "Mozilla-Public-License-2"
+    )
+
+    _alphaDir=(
+        "a" "b" "c" "d" "e" "f" "g" "h" "i" "j"
+        "k" "l" "m" "n" "o" "p" "q" "r" "s" "t"
+        "u" "v" "w" "x" "y" "z"
+    )
 
     shift
 
@@ -145,15 +164,58 @@ function create_repo () {
             _repo="${_dirPath}/$2"
             shift
         ;;
+        -p|--populate           ) _populate="yes"              ; shift           ;;
+        -l|--license            )
+            if [[ " ${_licenseTypes[*]} " == *" $2 "* ]] ; then
+                _license="$2" ; shift
+            else
+                echo "Invalid license specified: $2." >&2
+                echo "Available licenses: ${_licenseTypes[*]}" >&2
+                exit 1
+            fi
+        ;;
         --help | -h             ) echo "${_createRepoHelp}"    ; exit 0          ;;
         *                       ) if test -n "$2" ; then shift ; else break ; fi ;;
     esac ; done
 
     cd "$_repo"
 
+    # Setup the dists directory structure
+    echo "Create directory structure in $_repo"
+
+    mkdir -p "dists/$_release/main/binary-$_arch" "pool" || {
+        echo "Failed to create directory structure in $_repo" >&2 ; exit 1 ; }
+
+    if test "$_populate" = "yes" ; then
+        # Populate the repository with example packages
+        echo "Create alphabetical directory structure in pool/$_release/main"
+        for dir in "${_alphaDir[@]}" ; do
+            mkdir -p "pool/main/${dir}" || {
+                echo "Failed to create directory pool/$_release/main/${dir}" >&2 ; exit 1 ; }
+        done
+
+        # Add placeholder files to the pool directory for each architecture. This
+        # is to help with Git to track even empty directories.
+        for dir in "${_alphaDir[@]}" ; do
+            touch "pool/main/${dir}/placeholder-${_arch}.txt" || {
+                echo "Failed to create placeholder document!" >&2 ; exit 1 ; }
+        done
+    fi
+
     git init || { echo "Failed to initialize git repository in $_repo" >&2 ; exit 1 ; }
 
+    echo "Downloading ${_license} license."
+    wget -qc "${_licenseLink}/${_license}.txt" -O "LICENSE" || {
+        echo "Failed to download ${_license} license!" >&2 ; exit 1 ; }
 
+    echo "Generating README file."
+
+    # shellcheck disable=SC2002
+    cat "${_readmeFile}" |
+        sed "s|Maintainer: |Maintainer: $_maintainer|" |
+        sed "s|Date: |Date: $(date -R)|" |
+        sed "s|License: |License: <a href=\"LICENSE\">${_license}</a>|" > README.md || {
+        echo "Failed to generate README file!" >&2 ; exit 1 ; }
 
 }
 
@@ -178,6 +240,8 @@ _architectures="${ARCHITECTURES:-$(dpkg --print-architecture)}"
 _components="${COMPONENTS:-main}"
 _maintainer="${MAINTAINER:-$(git config user.name) <$(git config user.email)>}"
 _dirPath="${DIR_PATH}"
+
+_readmeFile="$(pwd)/readme-template.md"
 
 test -n "$_maintainer" || { echo "Maintainer is not set in the configuration file!" >&2 ; exit 1 ; }
 test -n "$_dirPath" || { echo "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
