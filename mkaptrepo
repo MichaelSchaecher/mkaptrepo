@@ -30,7 +30,7 @@ function monitor_repo() {
         echo "Detected changes in $directory: $events on $filename"
 
         # shellcheck disable=SC2086
-        dpkg-scanpackages --arch amd64 ./pool > $_packageList || {
+        dpkg-scanpackages --arch amd64 pool/ > $_packageList || {
             echo "dpkg-scanpackages failed, please check your package files!" >&2
             exit 1
         }
