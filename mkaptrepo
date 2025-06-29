@@ -226,9 +226,11 @@ _appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || echo "u
 
 _home="${HOME}"
 
+_editor="${EDITOR:-nano}"
+
 # Source the configuration file if it exists
 # shellcheck disable=SC1090
-source "${_home}/.config/${_appName}/mkaptrepo.conf" 2>/dev/null || {
+source "${_home}/.config/${_appName}/${_appName}.conf" 2>/dev/null || {
     echo "Configuration file not found!" >&2 ; exit 1 ; }
 
 _repositoryName="${REPOSITORY_NAME}"
@@ -301,6 +303,14 @@ Copyright (C) 2025 ${_maintainer}
 EOF
 )"
 
+# Install the configuration file if it does not exist
+if test ! -f "${_home}/.config/${_appName}/${_appName}.conf" ; then
+    mkdir -p "${_home}/.config/${_appName}"
+    cp -a /usr/share/${_appName}/${_appName}.conf "${_home}/.config/${_appName}/"
+    ${_editor} "${_home}/.config/${_appName}/${_appName}.conf" || {
+        echo "Failed to open configuration file in editor!" >&2 ; exit 1 ; }
+fi
+
 case "$1" in
     monitor                     ) monitor_repo           ;;
     daemonize                   )
@@ -310,7 +320,9 @@ case "$1" in
         }
     ;;
     create                      ) create_repo "$@"       ;;
-
+    config                      )
+        test ! -f "${_home}/.config/${_appName}/mkaptrepo.conf" || $_editor "${_home}/.config/${_appName}/mkaptrepo.conf"
+    ;;
     help                        ) echo "${_helpInfo}"    ;;
     version                     ) echo "${_versionInfo}" ;;
     *                           )
