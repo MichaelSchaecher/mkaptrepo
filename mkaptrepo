@@ -18,6 +18,10 @@
 
 function monitor_repo() {
 
+    cd "$_dirPath/$_repositoryName" || { echo "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
+
+    _pwdDir="$(pwd)"
+    _packageList="dists/stable/main/binary-amd64/Packages"
 
     inotifywait -m -e create,delete,modify,move -r pool/ | while read -r directory events filename; do
         update_repo || {
@@ -29,13 +33,6 @@ function monitor_repo() {
 }
 
 function update_repo () {
-
-    cd "$_dirPath/$_repositoryName" || { echo "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
-
-    local _pwdDir _packageList _upgraded _date
-
-    _pwdDir="$(pwd)"
-    _packageList="dists/stable/main/binary-amd64/Packages"
 
     echo "Detected changes in $directory: $events on $filename"
 
