@@ -287,13 +287,15 @@ EOF
 _createRepoHelp="$(cat <<EOF
 ${_versionInfo}
 
-Usage: ${_appName} create [OPTIONS]
+Usage: ${_appName} create [OPTIONS] ARG...
 
 Options:
     -a, --arch <arch>           Specify the architecture for the repository (default: \`$(dpkg --print-architecture)\`).
     -r, --release <codename>    Specify the codename for the release (default: \`stable\`).
-    -p, --parent <path>         Specify the parent directory for the repository will be created in.
-    --help, -h                  Show this help message and exit.
+    -n, --name <name>           Specify the name of the repository directory.
+    -p, --populate              Populate the repository with alphabetical directory structure and placeholder files.
+    -l, --license <license>     Specify the license for the repository (default: \`GPL-3\`).
+    -h, --help                  Show this help message and exit.
 
 Copyright (C) 2025 ${_maintainer}
 EOF
