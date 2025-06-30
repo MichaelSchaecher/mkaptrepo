@@ -50,6 +50,7 @@ function monitor_repo () {
 
     event_log "info" "Detected changes in $directory: $events on $filename"
 
+        sleep 5
         update_repo || {
             event_log "error" "Failed to update repository after changes in $directory: $events on $filename" >&2
             exit 1
@@ -155,11 +156,11 @@ function git_commit() {
 
 function gen_release () {
 
+        echo "$_releaseFile" > Release
+
         cd "dists/stable" || exit 1
 
-        rm -fv Release Release.gpg InRelease
-
-        echo "$_releaseFile" > Release
+        rm -fv Release.gpg InRelease
 
         for algo in "MD5Sum md5sum" "SHA1 sha1sum" "SHA256 sha256sum"; do
             read -r hashName hashCmd <<< "$algo"
