@@ -342,7 +342,7 @@ EOF
 _helpInfo="$(cat <<EOF
 ${_versionInfo}
 
-Usage: ${_appName} [OPTION]...
+Usage: ${_appName} [OPTION] flag ARG...
 
 Options
     update                      Update the package list and generate the Release file.
@@ -362,7 +362,7 @@ EOF
 _createRepoHelp="$(cat <<EOF
 ${_versionInfo}
 
-Usage: ${_appName} create [OPTIONS] ARG...
+Usage: ${_appName} create flag ARG...
 
 Options:
     -a, --arch <arch>           Specify the architecture for the repository (default: \`$(dpkg --print-architecture)\`).
