@@ -6,6 +6,7 @@ build/
 *.xz
 *.deb
 *.tar
+*.8
 out/
 changelog
 version
