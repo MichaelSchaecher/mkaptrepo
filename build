@@ -24,7 +24,6 @@ echo -e "\nBuilding ${PACKAGE_NAME} ${PACKAGE_VERSION} (${PACKAGE_ARCH})"
 mkdir -p \
     "$BUILD_DIR"/DEBIAN \
     "$BUILD_DIR"/usr/bin \
-    "$BUILD_DIR"/etc/ddnsd.conf.d \
     "$BUILD_DIR"/usr/lib/systemd/user \
     "$BUILD_DIR"/usr/share/man/man8 \
     "$BUILD_DIR"/usr/share/"$PACKAGE_NAME" \
@@ -44,7 +43,6 @@ cp -av readme-template.md "$BUILD_DIR/usr/share/$PACKAGE_NAME/"
 
 cp -av ./*.service "$BUILD_DIR/usr/lib/systemd/user/"
 cp -av $PACKAGE_NAME "$BUILD_DIR/usr/bin/"
-cp -av $PACKAGE_NAME.conf "$BUILD_DIR/etc/"
 cp -av debian/* "$BUILD_DIR/DEBIAN/"
 
 # Calculate Installed-Size
