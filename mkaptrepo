@@ -16,13 +16,33 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-function working_dir() {
+function event_log () {
 
-    cd "$_dirPath/$_repositoryName" || { echo "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
+    local _eventType _eventMessage
+
+    _eventType="${1:-unknown}"
+    _eventMessage="${2:-No message provided}"
+
+    echo "$_eventType: $_eventMessage"
+
+    case "$_eventType" in
+        info|warning|error      )
+            logger -t "${_appName}" -p user.${_eventType} "${_eventMessage}"
+        ;;
+        *                       )
+            logger -t "${_appName}" -p user.unknown "${_eventMessage}"
+        ;;
+    esac
 
 }
 
-function monitor_repo() {
+function working_dir () {
+
+    cd "$_dirPath/$_repositoryName" || { event_log "error" "$_dirPath/$_repositoryName does not exist." >&2 ; exit 1 ; }
+
+}
+
+function monitor_repo () {
 
     working_dir
 
@@ -30,10 +50,10 @@ function monitor_repo() {
 
     inotifywait -m -e create,delete,modify,move -r pool/ | while read -r directory events filename; do
 
-    echo "Detected changes in $directory: $events on $filename"
+    event_log "info" "Detected changes in $directory: $events on $filename"
 
         update_repo || {
-            echo "Failed to update repository after changes in $directory: $events on $filename" >&2
+            event_log "error" "Failed to update repository after changes in $directory: $events on $filename" >&2
             exit 1
         }
 
@@ -47,13 +67,17 @@ function update_repo () {
 
     test "$_monitoringDir" = "true" || working_dir
 
-    git add .
+    git add . || { event_log "error" "git add failed, no changes to commit." >&2 ; return 1 ; }
+
+    event_log "info" "Updating repository in $_dirPath/$_repositoryName"
 
     # shellcheck disable=SC2086
     dpkg-scanpackages --arch amd64 pool/ > $_packageList || {
-        echo "dpkg-scanpackages failed, please check your package files!" >&2
+        event_log "error" "dpkg-scanpackages failed, please check your package files!" >&2
         exit 1
     }
+
+    event_log "info" "Generated package list at $_packageList"
 
     # Remove `./` prefix from the package list
     sed -i "s|\ ./||g" "$_packageList"
@@ -61,8 +85,8 @@ function update_repo () {
     gzip -k -f "$_packageList"
     xz -k -f "$_packageList"
 
-    gen_release || { echo "Generating Release file failed!" >&2 ; exit 1 ; }
-    git_commit || { echo "git commit failed!" >&2 ; exit 1 ; }
+    gen_release || { event_log "Generating Release file failed!" >&2 ; exit 1 ; }
+    git_commit || { event_log "git commit failed!" >&2 ; exit 1 ; }
 
     # Check if mkaptrepo was updated during apt update
     _upgraded="$(zgrep "$_appName" /var/log/dpkg.log* | grep 'upgrade' |
@@ -84,14 +108,14 @@ function do_hash () {
     hashName=$1
     hashCmd=$2
 
-    echo "${hashName}:"
+    event_log "${hashName}:"
 
     find ./main -type f | while read -r f; do
 
-        f=$(echo "${f}" | cut -c3-) # remove ./ prefix
+        f=$(event_log "${f}" | cut -c3-) # remove ./ prefix
         test "${f}" != "Release" || continue
 
-        echo " $(${hashCmd} "${f}"  | cut -d" " -f1) $(wc -c "${f}")"
+        event_log " $(${hashCmd} "${f}"  | cut -d" " -f1) $(wc -c "${f}")"
 
     done
 
@@ -108,17 +132,17 @@ function git_commit() {
     # to get the list of changed files
     for status in R M A C D; do
         git status --porcelain | grep "^${status}" | while read -r line; do
-            file=$(echo "$line" | cut -c4-)
+            file=$(event_log "$line" | cut -c4-)
             commitMessage="Update ${file} with package details and description"
         done
     done
 
     git commit -m "${commitMessage:-"Update repository"}" || {
-        echo "git commit failed, no changes to commit." >&2
+        event_log "git commit failed, no changes to commit." >&2
         return 1
     }
 
-    git push origin main || { echo "git push failed!" >&2 ; exit 1 ; }
+    git push origin main || { event_log "git push failed!" >&2 ; exit 1 ; }
 }
 
 function gen_release () {
@@ -127,54 +151,55 @@ function gen_release () {
 
         rm -fv Release Release.gpg InRelease
 
-        echo "$_releaseFile" > Release
+        event_log "$_releaseFile" > Release
 
         for algo in "MD5Sum md5sum" "SHA1 sha1sum" "SHA256 sha256sum"; do
             read -r hashName hashCmd <<< "$algo"
             do_hash "$hashName" "$hashCmd" >> Release
         done >> Release
 
+        event_log "info" "Generated Release file in $(pwd)"
+
         gpg --default-key HowToNebie -abs -o Release.gpg Release
         gpg --default-key HowToNebie --clearsign -o InRelease Release
 
-        test "$?" -eq "0" || { echo "Singing the Release file failed!" >&2 ; exit 1 ; }
+        test "$?" -eq "0" || { event_log "error" "Singing the Release file failed!" >&2 ; exit 1 ; }
 
 }
 
 function create_repo () {
 
-    local _arch _repo _release _populate _license
+    local _arch _repo _release _populate _license _licenseLink
+    local _licenseTypes _alphaDir _options
 
     # Set default value from the configuration file
     _arch="${_architectures}"
-    _release="${_codename}"
+    _release=""
     _populate="no"
 
     _licenseLink="https://raw.githubusercontent.com/MichaelSchaecher/license-templates/refs/heads/main/licenses"
     _license="GPL-3"
 
-    # _licenseTypes=("AGPL-3.0" "Apache-2.0-License" "BSD-2Simplified-License" "BSD-3Clause-New-License"
-    #     "CDDL" "EclipsePublicLicense" "GPL-2" "GPL-3" LGPL-2.1" "LGPL-3" "MIT" "MPL-2.0"
-    #     "Mozilla-Public-License-2.0")
     _licenseTypes=(
         "AGPL-3" "Apache-2" "BSD-2" "BSD-3" "CDDL" "Eclipse-Public-License"
         "GPL-2" "GPL-3" "LGPL-2" "LGPL-3" "MIT" "Mozilla-Public-License-2"
     )
 
     _alphaDir=(
-        "a" "b" "c" "d" "e" "f" "g" "h" "i" "j"
-        "k" "l" "m" "n" "o" "p" "q" "r" "s" "t"
-        "u" "v" "w" "x" "y" "z"
+        "a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m"
+        "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z"
     )
 
     shift
 
+    # shellcheck disable=SC2222
+    # shellcheck disable=SC2221
     while true ; do case "$1" in
         -a|--arch               )
             if [[ "$2" =~ ^[a-zA-Z0-9-]+$ ]] ; then
                 _arch="$2" ; shift
             else
-                echo "Invalid architecture specified: $2" >&2
+                event_log "Invalid architecture specified: $2" >&2
                 exit 1
             fi
         ;;
@@ -182,75 +207,83 @@ function create_repo () {
             if [[ "$2" =~ ^[a-z] ]] ; then
                 _release="$2" ; shift
             else
-                echo "Invalid release codename specified: $2" >&2
+                event_log "Invalid release codename specified: $2" >&2
                 exit 1
             fi
         ;;
-        -n|--name             )
-            test -n "$2" || { echo "Parent directory is not specified!" >&2 ; exit 1 ; }
-            mkdir -pv "$_dirPath/$2" || { echo "Failed to create directory $_dirPath/$2" >&2 ; exit 1 ; }
+        -n|--name               )
+            test -n "$2" || { event_log "Parent directory is not specified!" >&2 ; exit 1 ; }
+            mkdir -pv "$_dirPath/$2" || { event_log "Failed to create directory $_dirPath/$2" >&2 ; exit 1 ; }
             _repo="${_dirPath}/$2"
             shift
         ;;
-        -p|--populate           ) _populate="yes"              ; shift           ;;
+        -p|--populate           ) _populate="yes"                  ; shift       ;;
         -l|--license            )
             if [[ " ${_licenseTypes[*]} " == *" $2 "* ]] ; then
                 _license="$2" ; shift
             else
-                echo "Invalid license specified: $2." >&2
-                echo "Available licenses: ${_licenseTypes[*]}" >&2
+                event_log "Invalid license specified: $2." >&2
+                event_log "Available licenses: ${_licenseTypes[*]}" >&2
                 exit 1
             fi
         ;;
-        --help | -h             ) echo "${_createRepoHelp}"    ; exit 0          ;;
+        -h|--help               ) event_log "${_createRepoHelp}"          ; exit 0    ;;
+        -*|--*                  ) event_log "Unrecognized option: $1" >&2 ; exit 1    ;;
         *                       ) if test -n "$2" ; then shift ; else break ; fi ;;
     esac ; done
+
+    # Check if the options are valid by comparing the string command
+    event_log "$@" | grep -qE '$_options[@]' || {
+        event_log "Invalid options specified!" >&2
+        event_log "Available options: $_options" >&2
+        exit 1
+    }
 
     cd "$_repo"
 
     # Setup the dists directory structure
-    echo "Create directory structure in $_repo"
+    event_log "Create directory structure in $_repo"
 
     mkdir -p "dists/$_release/main/binary-$_arch" "pool" || {
-        echo "Failed to create directory structure in $_repo" >&2 ; exit 1 ; }
+        event_log "Failed to create directory structure in $_repo" >&2 ; exit 1 ; }
 
     if test "$_populate" = "yes" ; then
         # Populate the repository with example packages
-        echo "Create alphabetical directory structure in pool/$_release/main"
+        event_log "Create alphabetical directory structure in pool/$_release/main"
         for dir in "${_alphaDir[@]}" ; do
             mkdir -p "pool/main/${dir}" || {
-                echo "Failed to create directory pool/$_release/main/${dir}" >&2 ; exit 1 ; }
+                event_log "Failed to create directory pool/$_release/main/${dir}" >&2 ; exit 1 ; }
         done
 
         # Add placeholder files to the pool directory for each architecture. This
         # is to help with Git to track even empty directories.
         for dir in "${_alphaDir[@]}" ; do
             touch "pool/main/${dir}/placeholder-${_arch}.txt" || {
-                echo "Failed to create placeholder document!" >&2 ; exit 1 ; }
+                event_log "Failed to create placeholder document!" >&2 ; exit 1 ; }
         done
     fi
 
-    git init || { echo "Failed to initialize git repository in $_repo" >&2 ; exit 1 ; }
+    git init || { event_log "Failed to initialize git repository in $_repo" >&2 ; exit 1 ; }
 
-    echo "Downloading ${_license} license."
+    event_log "Downloading ${_license} license."
     wget -qc "${_licenseLink}/${_license}.txt" -O "LICENSE" || {
-        echo "Failed to download ${_license} license!" >&2 ; exit 1 ; }
+        event_log "Failed to download ${_license} license!" >&2 ; exit 1 ; }
 
-    echo "Generating README file."
+    event_log "Generating README file."
 
     # shellcheck disable=SC2002
     cat "${_readmeFile}" |
         sed "s|Maintainer: |Maintainer: $_maintainer|" |
         sed "s|Date: |Date: $(date -R)|" |
         sed "s|License: |License: <a href=\"LICENSE\">${_license}</a>|" > README.md || {
-        echo "Failed to generate README file!" >&2 ; exit 1 ; }
+        event_log "Failed to generate README file!" >&2 ; exit 1 ; }
 
 }
 
 set -eo pipefail
 
 _appName="mkaptrepo"
-_appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || echo "unknown")"
+_appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || event_log "unknown")"
 
 _home="${HOME}"
 
@@ -259,7 +292,7 @@ _editor="${EDITOR:-nano}"
 # Source the configuration file if it exists
 # shellcheck disable=SC1090
 source "${_home}/.config/${_appName}/${_appName}.conf" 2>/dev/null || {
-    echo "Configuration file not found!" >&2 ; exit 1 ; }
+    event_log "Configuration file not found!" >&2 ; exit 1 ; }
 
 _repositoryName="${REPOSITORY_NAME}"
 _origin="${ORIGIN:-repository}"
@@ -273,8 +306,8 @@ _dirPath="${DIR_PATH}"
 
 _readmeFile="$(pwd)/readme-template.md"
 
-test -n "$_maintainer" || { echo "Maintainer is not set in the configuration file!" >&2 ; exit 1 ; }
-test -n "$_dirPath" || { echo "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
+test -n "$_maintainer" || { event_log "Maintainer is not set in the configuration file!" >&2 ; exit 1 ; }
+test -n "$_dirPath" || { event_log "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
 
 _releaseFile="$(cat <<EOF
 Origin: $_origin
@@ -337,7 +370,7 @@ if test ! -f "${_home}/.config/${_appName}/${_appName}.conf" ; then
     mkdir -p "${_home}/.config/${_appName}"
     cp -a /usr/share/${_appName}/${_appName}.conf "${_home}/.config/${_appName}/"
     ${_editor} "${_home}/.config/${_appName}/${_appName}.conf" || {
-        echo "Failed to open configuration file in editor!" >&2 ; exit 1 ; }
+        event_log "Failed to open configuration file in editor!" >&2 ; exit 1 ; }
 fi
 
 case "$1" in
@@ -345,19 +378,20 @@ case "$1" in
     monitor                     ) monitor_repo           ;;
     daemonize                   )
         systemctl enable --now --user mkaptrepo.service || {
-            echo "Failed to enable mkaptrepo service." >&2
+            event_log "Failed to enable mkaptrepo service." >&2
             exit 1
         }
         exit 0
     ;;
     create                      ) create_repo "$@"       ;;
     config                      )
-        test ! -f "${_home}/.config/${_appName}/mkaptrepo.conf" || $_editor "${_home}/.config/${_appName}/mkaptrepo.conf"
+        test ! -f "${_home}/.config/${_appName}/mkaptrepo.conf" ||
+            $_editor "${_home}/.config/${_appName}/mkaptrepo.conf"
     ;;
-    help                        ) echo "${_helpInfo}"    ;;
-    version                     ) echo "${_versionInfo}" ;;
+    help                        ) event_log "${_helpInfo}"    ;;
+    version                     ) event_log "${_versionInfo}" ;;
     *                           )
-        echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
+        event_log "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
         exit 1
     ;;
 esac
