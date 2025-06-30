@@ -28,11 +28,11 @@ The name of the APT repository. This is used to identify the repository in the p
 
 ---
 
-Example: `REPOSITORY_NAME="my-repo"`
+Example: _REPOSITORY_NAME=my-repo_
 
 ---
 
-Default: `REPOSITORY_NAME=none`
+Default: _REPOSITORY_NAME=none_
 
 ## ORIGIN
 
@@ -40,11 +40,11 @@ The origin of the APT repository. This is used to identify the source of the pac
 
 ---
 
-Example: `ORIGIN="howtonebie"
+Example: _ORIGIN=howtonebie_
 
 ---
 
-Default: `ORIGIN="repository"`
+Default: _ORIGIN=repository_
 
 ## LABEL
 
@@ -52,11 +52,11 @@ The label of the APT repository. This is used to identify the repository in the 
 
 ---
 
-Example: `LABEL="my-repo"`
+Example: _LABEL=my-repo_
 
 ---
 
-Default: `LABEL="same as ORIGIN"`
+Default: _LABEL=same as ORIGIN_
 
 ## SUITE
 
@@ -64,11 +64,11 @@ The suite of the APT repository. This is used to identify the version of the pac
 
 ---
 
-Example: `SUITE="stable"`
+Example: _SUITE=stable_
 
 ---
 
-Default: `SUITE="stable"`
+Default: _SUITE=stable_
 
 ## CODENAME
 
@@ -76,11 +76,11 @@ The codename of the APT repository. This is used to identify the version of the 
 
 ---
 
-Example: `CODENAME="stable"`
+Example: _CODENAME=stable_
 
 ---
 
-Default: `CODENAME="stable"`
+Default: _CODENAME=stable_
 
 ## ARCHITECTURE
 
@@ -88,11 +88,11 @@ The architecture of the APT repository. This is used to identify the architectur
 
 ---
 
-Example: `ARCHITECTURE="amd64"`
+Example: _ARCHITECTURE=amd64_
 
 ---
 
-Default: `ARCHITECTURE="$(dpkg --print-architecture)"`
+Default: _ARCHITECTURE=$(dpkg --print-architecture)_
 
 ## COMPONENTS
 
@@ -100,11 +100,11 @@ The components of the APT repository. This is used to identify the components of
 
 ---
 
-Example: `COMPONENTS="main contrib non-free"`
+Example: _COMPONENTS=main contrib non-free_
 
 ---
 
-Default: `COMPONENTS="main"`
+Default: _COMPONENTS=main_
 
 ## MAINTAINER
 
@@ -112,11 +112,11 @@ The maintainer of the APT repository. This is used to identify the maintainer of
 
 ---
 
-Example: `MAINTAINER="John Doe <johndoe@email.com>"`
+Example: _MAINTAINER=John Doe <johndoe@email.com>_
 
 ---
 
-Default: `MAINTAINER="$(git config user.name) <$(git config user.email)>"`
+Default: _MAINTAINER=$(git config user.name) \<$(git config user.email)\>_
 
 ## DIR_PATH
 
@@ -124,15 +124,15 @@ The directory path is where the local APT repository is stored. this must be set
 
 ---
 
-Example: `DIR_PATH="$HOME/repositories/my-repo"`
+Example: _DIR_PATH=$HOME/repositories/my-repo_
 
 ---
 
-Default: `DIR_PATH=none`
+Default: _DIR_PATH=none_
 
 # SEE_ALSO
 
-mkaptrepo(8), apt(8), dpkg(1) dpkg-scanpackages(1)
+_mkaptrepo(8)_, _apt(8)_, _dpkg(1)_, _dpkg-scanpackages(1)_
 
 # COPYRIGHT
 
