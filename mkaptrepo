@@ -83,8 +83,8 @@ function update_repo () {
     gzip -k -f "$_packageList"
     xz -k -f "$_packageList"
 
-    gen_release || { event_log "Generating Release file failed!" >&2 ; exit 1 ; }
-    git_commit || { event_log "git commit failed!" >&2 ; exit 1 ; }
+    gen_release || { event_log "error" "Generating Release file failed!" >&2 ; exit 1 ; }
+    git_commit || { event_log "error" "git commit failed!" >&2 ; exit 1 ; }
 
     # Check if mkaptrepo was updated during apt update
     _upgraded="$(zgrep "$_appName" /var/log/dpkg.log* | grep 'upgrade' |
@@ -106,14 +106,14 @@ function do_hash () {
     hashName=$1
     hashCmd=$2
 
-    event_log "${hashName}:"
+    echo "${hashName}:"
 
     find ./main -type f | while read -r f; do
 
-        f=$(event_log "${f}" | cut -c3-)
+        f=$(echo "${f}" | cut -c3-)
         test "${f}" != "Release" || continue
 
-        event_log " $(${hashCmd} "${f}"  | cut -d" " -f1) $(wc -c "${f}")"
+        echo " $(${hashCmd} "${f}"  | cut -d" " -f1) $(wc -c "${f}")"
 
     done
 
@@ -146,10 +146,10 @@ function git_commit() {
     # Trim trailing punctuation and space
     _commitMassage=$(echo -e "$_commitMassage" | sed 's/[[:space:]]*$//')
 
-    test -n "$_commitMassage" || { event_log "No changes to commit." >&2 ; return 1 ; }
+    test -n "$_commitMassage" || { event_log "error" "No changes to commit." >&2 ; return 1 ; }
 
-    git commit -m "$_commitMassage" || { event_log "git commit failed!" >&2 ; exit 1 ; }
-    git push origin main || { event_log "git push failed!" >&2 ; exit 1 ; }
+    git commit -m "$_commitMassage" || { event_log "error" "git commit failed!" >&2 ; exit 1 ; }
+    git push origin main || { event_log "error" "git push failed!" >&2 ; exit 1 ; }
 
 }
 
@@ -159,7 +159,7 @@ function gen_release () {
 
         rm -fv Release Release.gpg InRelease
 
-        event_log "$_releaseFile" > Release
+        echo "$_releaseFile" > Release
 
         for algo in "MD5Sum md5sum" "SHA1 sha1sum" "SHA256 sha256sum"; do
             read -r hashName hashCmd <<< "$algo"
@@ -207,7 +207,7 @@ function create_repo () {
             if [[ "$2" =~ ^[a-zA-Z0-9-]+$ ]] ; then
                 _arch="$2" ; shift
             else
-                event_log "Invalid architecture specified: $2" >&2
+                echo "Invalid architecture specified: $2" >&2
                 exit 1
             fi
         ;;
@@ -215,7 +215,7 @@ function create_repo () {
             if [[ "$2" =~ ^[a-z] ]] ; then
                 _release="$2" ; shift
             else
-                event_log "Invalid release codename specified: $2" >&2
+                echo "Invalid release codename specified: $2" >&2
                 exit 1
             fi
         ;;
@@ -230,48 +230,48 @@ function create_repo () {
             if [[ " ${_licenseTypes[*]} " == *" $2 "* ]] ; then
                 _license="$2" ; shift
             else
-                event_log "Invalid license specified: $2." >&2
-                event_log "Available licenses: ${_licenseTypes[*]}" >&2
+                echo "Invalid license specified: $2." >&2
+                echo "Available licenses: ${_licenseTypes[*]}" >&2
                 exit 1
             fi
         ;;
-        -h|--help               ) event_log "${_createRepoHelp}"          ; exit 0    ;;
-        -*|--*                  ) event_log "Unrecognized option: $1" >&2 ; exit 1    ;;
+        -h|--help               ) echo "${_createRepoHelp}"          ; exit 0    ;;
+        -*|--*                  ) echo "Unrecognized option: $1" >&2 ; exit 1    ;;
         *                       ) if test -n "$2" ; then shift ; else break ; fi ;;
     esac ; done
 
     # Check if the options are valid by comparing the string command
-    event_log "$@" | grep -qE '$_options[@]' || {
-        event_log "Invalid options specified!" >&2
-        event_log "Available options: $_options" >&2
+    echo "$@" | grep -qE '$_options[@]' || {
+        echo "Invalid options specified!" >&2
+        echo "Available options: $_options" >&2
         exit 1
     }
 
     cd "$_repo"
 
     # Setup the dists directory structure
-    event_log "Create directory structure in $_repo"
+    event_log "info" "Create directory structure in $_repo"
 
     mkdir -p "dists/$_release/main/binary-$_arch" "pool" || {
-        event_log "Failed to create directory structure in $_repo" >&2 ; exit 1 ; }
+        event_log "info" "Failed to create directory structure in $_repo" >&2 ; exit 1 ; }
 
     if test "$_populate" = "yes" ; then
         # Populate the repository with example packages
-        event_log "Create alphabetical directory structure in pool/$_release/main"
+        event_log "info" "Create alphabetical directory structure in pool/$_release/main"
         for dir in "${_alphaDir[@]}" ; do
             mkdir -p "pool/main/${dir}" || {
-                event_log "Failed to create directory pool/$_release/main/${dir}" >&2 ; exit 1 ; }
+                event_log "error" "Failed to create directory pool/$_release/main/${dir}" >&2 ; exit 1 ; }
         done
 
         # Add placeholder files to the pool directory for each architecture. This
         # is to help with Git to track even empty directories.
         for dir in "${_alphaDir[@]}" ; do
             touch "pool/main/${dir}/placeholder-${_arch}.txt" || {
-                event_log "Failed to create placeholder document!" >&2 ; exit 1 ; }
+                event_log "error" "Failed to create placeholder document!" >&2 ; exit 1 ; }
         done
     fi
 
-    git init || { event_log "Failed to initialize git repository in $_repo" >&2 ; exit 1 ; }
+    git init || { event_log "error" "Failed to initialize git repository in $_repo" >&2 ; exit 1 ; }
 
     event_log "Downloading ${_license} license."
     wget -qc "${_licenseLink}/${_license}.txt" -O "LICENSE" || {
@@ -284,14 +284,14 @@ function create_repo () {
         sed "s|Maintainer: |Maintainer: $_maintainer|" |
         sed "s|Date: |Date: $(date -R)|" |
         sed "s|License: |License: <a href=\"LICENSE\">${_license}</a>|" > README.md || {
-        event_log "Failed to generate README file!" >&2 ; exit 1 ; }
+        event_log "error" "Failed to generate README file!" >&2 ; exit 1 ; }
 
 }
 
 set -eo pipefail
 
 _appName="mkaptrepo"
-_appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || event_log "unknown")"
+_appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || event_log "warning" "unknown")"
 
 _home="${HOME}"
 
@@ -300,7 +300,7 @@ _editor="${EDITOR:-nano}"
 # Source the configuration file if it exists
 # shellcheck disable=SC1090
 source "${_home}/.config/${_appName}/${_appName}.conf" 2>/dev/null || {
-    event_log "Configuration file not found!" >&2 ; exit 1 ; }
+    event_log "error" "Configuration file not found!" >&2 ; exit 1 ; }
 
 _repositoryName="${REPOSITORY_NAME}"
 _origin="${ORIGIN:-repository}"
@@ -314,8 +314,8 @@ _dirPath="${DIR_PATH}"
 
 _readmeFile="$(pwd)/readme-template.md"
 
-test -n "$_maintainer" || { event_log "Maintainer is not set in the configuration file!" >&2 ; exit 1 ; }
-test -n "$_dirPath" || { event_log "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
+test -n "$_maintainer" || { event_log "error" "Maintainer is not set in the configuration file!" >&2 ; exit 1 ; }
+test -n "$_dirPath" || { event_log "error" "Directory path is not set in the configuration file!" >&2 ; exit 1 ; }
 
 _releaseFile="$(cat <<EOF
 Origin: $_origin
@@ -378,7 +378,7 @@ if test ! -f "${_home}/.config/${_appName}/${_appName}.conf" ; then
     mkdir -p "${_home}/.config/${_appName}"
     cp -a /usr/share/${_appName}/${_appName}.conf "${_home}/.config/${_appName}/"
     ${_editor} "${_home}/.config/${_appName}/${_appName}.conf" || {
-        event_log "Failed to open configuration file in editor!" >&2 ; exit 1 ; }
+        event_log "error" "Failed to open configuration file in editor!" >&2 ; exit 1 ; }
 fi
 
 case "$1" in
@@ -386,7 +386,7 @@ case "$1" in
     monitor                     ) monitor_repo           ;;
     daemonize                   )
         systemctl enable --now --user mkaptrepo.service || {
-            event_log "Failed to enable mkaptrepo service." >&2
+            event_log "error" "Failed to enable mkaptrepo service." >&2
             exit 1
         }
         exit 0
@@ -396,10 +396,10 @@ case "$1" in
         test ! -f "${_home}/.config/${_appName}/mkaptrepo.conf" ||
             $_editor "${_home}/.config/${_appName}/mkaptrepo.conf"
     ;;
-    help                        ) event_log "${_helpInfo}"    ;;
-    version                     ) event_log "${_versionInfo}" ;;
+    help                        ) echo "${_helpInfo}"    ;;
+    version                     ) echo "${_versionInfo}" ;;
     *                           )
-        event_log "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
+        echo "Unrecognized option: $1 called see \`${_appName} help\` for usage information."
         exit 1
     ;;
 esac
