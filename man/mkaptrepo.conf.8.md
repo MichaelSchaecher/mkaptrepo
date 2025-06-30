@@ -116,7 +116,7 @@ Example: _MAINTAINER=John Doe <johndoe@email.com>_
 
 ---
 
-Default: _MAINTAINER=$(git config user.name) \<$(git config user.email)\>_
+Default: _MAINTAINER=$(git config user.name) <$(git config user.email)>_
 
 ## DIR_PATH
 
