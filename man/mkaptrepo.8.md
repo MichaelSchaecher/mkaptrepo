@@ -121,7 +121,7 @@ By using user _systemd_ service, the _mkaptrepo_ script is only run when the use
 
 # SEE ALSO
 
-`mkaptrepo.conf(8)` `systemd(1)`
+`mkaptrepo.conf(8)` `systemd(1)` `apt(8)` `dpkg(1)` `dpkg-scanpackages(1)` gpg(1)
 
 # COPYRIGHT
 
