@@ -10,7 +10,7 @@
 
 There are many tools to create Debian/Ubuntu DEB repositories, but most of them are too complex or not flexible enough. This tool is designed to be simple and flexible, the general or novice developer to create a DEB repository with minimal effort.
 
-Why is the even a thing? Because I needed it for my own projects, and that I self-host a servers that I have made basic packages to manage a few services. As most of the servers are setup with a set-it-and-forget mentality, I needed a tool that would allow me to create a DEB repository with minimal effort that whey I use `unattended-upgrades` to update the servers from my own [repository](https://repository.howtonebie.com/, I can be sure that the packages are up to date and secure.
+Why is the even a thing? Because I needed it for my own projects, and that I self-host a servers that I have made basic packages to manage a few services. As most of the servers are setup with a set-it-and-forget mentality, I needed a tool that would allow me to create a DEB repository with minimal effort that whey I use `unattended-upgrades` to update the servers from my own [repository](https://repository.howtonebie.com), I can be sure that the packages are up to date and secure.
 
 ## Features
 
