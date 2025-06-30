@@ -126,24 +126,35 @@ function git_commit() {
 
     git add .
 
-    local commitMessage
+    local _commitType _commitMassage
 
-    # Generate a commit message based on what has changed use `git status`
-    # to get the list of changed files
-    for status in R M A C D; do
-        git status --porcelain | grep "^${status}" | while read -r line; do
-            file=$(event_log "$line" | cut -c4-)
-            commitMessage="Update ${file} with package details and description"
-        done
-    done
+    _commitType=""
+    _commitMassage=""
 
-    git commit -m "${commitMessage:-"Update repository"}" || {
-        event_log "git commit failed, no changes to commit." >&2
-        return 1
-    }
+    # Generate a commit message based on what has changed using `git status`
+    while read -r status file rest; do
+        case "$status" in
+            R                   ) _commitType="Renamed" ; file="$rest" ;;
+            M                   ) _commitType="Modified"               ;;
+            A                   ) _commitType="Added"                  ;;
+            C                   ) _commitType="Copied" ; file="$rest"  ;;
+            D                   ) _commitType="Deleted"                ;;
+            *                   ) continue ;;
+        esac
 
+        _commitMassage+="$_commitType $file. "
+    done < <(git status --porcelain | awk '{print $1, $2, $3}')
+
+    # Trim trailing punctuation and space
+    _commitMassage=$(echo -e "$_commitMassage" | sed 's/[[:space:]]*$//')
+
+    test -n "$_commitMassage" || { event_log "No changes to commit." >&2 ; return 1 ; }
+
+    git commit -m "$_commitMassage" || { event_log "git commit failed!" >&2 ; exit 1 ; }
     git push origin main || { event_log "git push failed!" >&2 ; exit 1 ; }
+
 }
+
 
 function gen_release () {
 
