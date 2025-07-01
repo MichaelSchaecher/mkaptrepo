@@ -46,11 +46,11 @@ function monitor_repo () {
 
     _monitoringDir="true"
 
-    inotifywait -m -e create,delete,modify,move -r pool/ | while read -r directory events filename; do
-
-    event_log "info" "Detected changes in $directory: $events on $filename"
+    inotifywait -m -e create,delete -r pool/ | while read -r directory events filename; do
 
         sleep 5
+
+        event_log "info" "Detected changes in $directory: $events on $filename"
         update_repo || {
             event_log "error" "Failed to update repository after changes in $directory: $events on $filename" >&2
             exit 1
@@ -71,7 +71,7 @@ function update_repo () {
     event_log "info" "Updating repository in $_dirPath/$_repositoryName"
 
     # shellcheck disable=SC2086
-    dpkg-scanpackages --arch amd64 pool/ > $_packageList || {
+    dpkg-scanpackages --arch amd64 pool/ > "$_packageList" || {
         event_log "error" "dpkg-scanpackages failed, please check your package files!" >&2
         exit 1
     }
@@ -97,6 +97,9 @@ function update_repo () {
     if test "$_date" = "$_upgraded" ; then
         systemctl --user restart mkaptrepo.service > /dev/null 2>&1 || true
     fi
+
+    # Need return to the original working directory to avoid issues with relative paths
+    working_dir
 
 }
 
@@ -156,16 +159,16 @@ function git_commit() {
 
 function gen_release () {
 
-        echo "$_releaseFile" > Release
-
         cd "dists/stable" || exit 1
+
+        echo "$_releaseFile" > Release
 
         rm -fv Release.gpg InRelease
 
-        for algo in "MD5Sum md5sum" "SHA1 sha1sum" "SHA256 sha256sum"; do
-            read -r hashName hashCmd <<< "$algo"
-            do_hash "$hashName" "$hashCmd" >> Release
-        done >> Release
+        # shellcheck disable=SC2129
+        do_hash "SHA1" "sha1sum" >> Release
+        do_hash "SHA256" "sha256sum" >> Release
+        do_hash "SHA512" "sha512sum" >> Release
 
         event_log "info" "Generated Release file in $(pwd)"
 
