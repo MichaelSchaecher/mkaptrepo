@@ -292,7 +292,7 @@ function create_repo () {
 set -eo pipefail
 
 _appName="mkaptrepo"
-_appVersion="$(cat /usr/share/doc/${_appName}/version.txt 2>/dev/null || event_log "warning" "unknown")"
+_appVersion="$(cat /usr/share/doc/${_appName}/version 2>/dev/null || event_log "warning" "unknown")"
 
 _home="${HOME}"
 
