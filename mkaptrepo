@@ -136,8 +136,10 @@ function git_commit() {
     # Generate a commit message based on what has changed using `git status`
     while read -r status file rest; do
         case "$status" in
+            R                   ) _commitType="Renamed" ; file="$rest" ;;
+            M                   ) _commitType="Modified"               ;;
             A                   ) _commitType="Added"                  ;;
-            D                   ) _commitType="Deleted"                ;;
+            C                   ) _commitType="Copied" ; file="$rest"  ;;
             *                   ) continue ;;
         esac
 
