@@ -46,7 +46,7 @@ function monitor_repo () {
 
     _monitoringDir="true"
 
-    inotifywait -m -e create,delete -r pool/ | while read -r directory events filename; do
+    inotifywait -m -e create,delete,modify,move  -r pool/ | while read -r directory events filename; do
 
         sleep 5
 
